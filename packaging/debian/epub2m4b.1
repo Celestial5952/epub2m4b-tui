@@ -1,0 +1,34 @@
+.TH EPUB2M4B 1 "September 2026" "epub2m4b 0.1.0" "User Commands"
+.SH NAME
+epub2m4b \- turn EPUB ebooks into chaptered M4B audiobooks
+.SH SYNOPSIS
+.B epub2m4b
+.RI [ \-\-version ]
+.SH DESCRIPTION
+.B epub2m4b
+is a mouse-driven terminal application that converts EPUB ebooks into
+resumable, chaptered M4B audiobooks.
+.PP
+On first launch the app guides you through choosing the folder that contains
+your EPUB books, a folder for temporary narration audio, and a bundled
+narration voice. Narration uses an OpenAI API key that you can save or change
+later from the in-app Settings screen; keys are stored in the system keyring.
+.PP
+Before any paid narration starts, the app shows a cost estimate and requires
+typing a confirmation word. Generation can be paused, resumed, and cancelled
+at safe boundaries, and completed audiobooks are opened with the desktop
+player from the job screen.
+.SH OPTIONS
+.TP
+.B \-\-version
+Print the version and exit.
+.SH FILES
+.TP
+.I ~/.config/epub2m4b/config.toml
+User configuration.
+.TP
+.I ~/.local/state/epub2m4b/jobs
+Persisted job manifests and progress.
+.SH SEE ALSO
+.BR ffmpeg (1),
+.BR xdg\-open (1)

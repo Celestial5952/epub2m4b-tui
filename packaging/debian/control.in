@@ -1,0 +1,13 @@
+Package: epub2m4b
+Version: @VERSION@
+Architecture: @ARCHITECTURE@
+Maintainer: EPUB2M4B contributors <maintainers@epub2m4b.invalid>
+Installed-Size: @INSTALLED_SIZE@
+Depends: python3 (>= 3.14), libc6, ffmpeg, ca-certificates
+Recommends: libsecret-1-0
+Section: sound
+Priority: optional
+Description: terminal audiobook studio for EPUB books
+ EPUB2M4B converts EPUB ebooks into resumable, chaptered M4B audiobooks.
+ It provides a guided terminal interface, selectable voice previews, guarded
+ cost estimates, durable audio caching, and FFmpeg-based M4B assembly.

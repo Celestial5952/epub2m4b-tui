@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "model": "gpt-4o-mini-tts",
+  "format": "opus",
+  "speed": 1.0,
+  "sentence": "At dawn, the old city stirred—quietly at first, then all at once—as a new adventure began.",
+  "instructions": "Narrate this as a warm, clear professional audiobook narrator at a comfortable listening pace.",
+  "voices": [
+    {
+      "id": "alloy",
+      "display_name": "Alloy",
+      "file": "alloy.opus",
+      "duration_seconds": 6.86,
+      "size_bytes": 62574,
+      "sha256": "ba814d58c9b0aff85dae900b3ae1becef4a1ca5a6df7c19d0d61b2609913e6a6"
+    },
+    {
+      "id": "ash",
+      "display_name": "Ash",
+      "file": "ash.opus",
+      "duration_seconds": 7.96,
+      "size_bytes": 60026,
+      "sha256": "5954723cf825887f6debc56061765e34e8643c53f48970b0cba275a51da7ceed"
+    },
+    {
+      "id": "ballad",
+      "display_name": "Ballad",
+      "file": "ballad.opus",
+      "duration_seconds": 8.51,
+      "size_bytes": 73183,
+      "sha256": "88fae61e463f7a7a916673a8a220e05964dc1d46a00ad0c904bd6e8789e30b77"
+    },
+    {
+      "id": "coral",
+      "display_name": "Coral",
+      "file": "coral.opus",
+      "duration_seconds": 8.01,
+      "size_bytes": 67782,
+      "sha256": "55fe58f26c13de5cd1b673206972066904d9979a0a510b819f930cf620161032"
+    },
+    {
+      "id": "echo",
+      "display_name": "Echo",
+      "file": "echo.opus",
+      "duration_seconds": 7.61,
+      "size_bytes": 71476,
+      "sha256": "d56299a7fd53d808bea80e62a37b86cab36675c6841779093e69492c80055bb7"
+    },
+    {
+      "id": "fable",
+      "display_name": "Fable",
+      "file": "fable.opus",
+      "duration_seconds": 8.26,
+      "size_bytes": 78082,
+      "sha256": "5a4d3d303b9ad14ba654b7c49842edb8f0b598edc1457dae2083fa387aff814c"
+    },
+    {
+      "id": "onyx",
+      "display_name": "Onyx",
+      "file": "onyx.opus",
+      "duration_seconds": 8.86,
+      "size_bytes": 83451,
+      "sha256": "5ed34cd3b3952d1188b471112cf366ef9dbc78ec7ab8d4259ee6b9705ec833ab"
+    },
+    {
+      "id": "nova",
+      "display_name": "Nova",
+      "file": "nova.opus",
+      "duration_seconds": 7.76,
+      "size_bytes": 70403,
+      "sha256": "7eafb5930a8a4cf0040e7cccc2cd6fc19901b52be9a75fedff725b4cb50eb192"
+    },
+    {
+      "id": "sage",
+      "display_name": "Sage",
+      "file": "sage.opus",
+      "duration_seconds": 8.36,
+      "size_bytes": 70845,
+      "sha256": "641ea2e073fd5e6840983940bbc6a81ec8478eac20117227f6b95f224bf48301"
+    },
+    {
+      "id": "shimmer",
+      "display_name": "Shimmer",
+      "file": "shimmer.opus",
+      "duration_seconds": 7.06,
+      "size_bytes": 61645,
+      "sha256": "7d2c94d038156f600bceb2977385c043b796a1a6c2a643c1176691a1a1055b9a"
+    },
+    {
+      "id": "verse",
+      "display_name": "Verse",
+      "file": "verse.opus",
+      "duration_seconds": 9.01,
+      "size_bytes": 75751,
+      "sha256": "89e15d5f157cab38195d9285dcd8ae77c9595c1b66016ca098e2b9ea56cd2d57"
+    },
+    {
+      "id": "marin",
+      "display_name": "Marin",
+      "file": "marin.opus",
+      "duration_seconds": 7.01,
+      "size_bytes": 60407,
+      "sha256": "74ed92219d91cae44ba563387cfd95a721153fa5f42e82d64b2b66ecdd062216"
+    },
+    {
+      "id": "cedar",
+      "display_name": "Cedar",
+      "file": "cedar.opus",
+      "duration_seconds": 7.46,
+      "size_bytes": 67469,
+      "sha256": "987ef14a410528c6fcdb77ca11c0e6a1ca2e21ca2838c59fcb62b15d7c7f58b0"
+    }
+  ]
+}

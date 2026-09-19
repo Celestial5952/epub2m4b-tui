@@ -1,0 +1,63 @@
+epub2m4b (0.1.6) resolute; urgency=medium
+
+  * Add format-aware cover video codec selection (mjpeg, png, libwebp).
+  * Fix FFmpeg concat-list path escaping for demuxer syntax.
+  * Unify ConfigurationError hierarchy and improve credential filtering.
+  * Make chunk audio validation failure a retryable error.
+  * Add cross-filesystem promotion fallback for audio artifacts.
+  * Skip redundant state re-saving on already-complete chunks during recovery.
+  * Validate narration speed to reject non-finite float values.
+  * Wire missing navigation button handlers in Job Details.
+  * Expand chapter timing tolerance to 50ms for AAC packet boundaries.
+
+ -- EPUB2M4B contributors <maintainers@epub2m4b.invalid>  Fri, 18 Sep 2026 15:05:00 -0400
+
+epub2m4b (0.1.5) resolute; urgency=medium
+
+  * Keep narration running when navigating away from Job Details.
+  * Recover interrupted running jobs as resumable while preserving cached audio.
+  * Refresh reopened job progress from durable state.
+
+ -- EPUB2M4B contributors <maintainers@epub2m4b.invalid>  Fri, 18 Sep 2026 00:20:00 -0400
+
+epub2m4b (0.1.4) resolute; urgency=medium
+
+  * Migrate the retired gpt-4o-tts configuration before creating a job.
+  * Prevent legacy configuration from overriding the Settings model selection.
+
+ -- EPUB2M4B contributors <maintainers@epub2m4b.invalid>  Thu, 17 Sep 2026 24:10:00 -0400
+
+epub2m4b (0.1.3) resolute; urgency=medium
+
+  * Add a no-audio OpenAI API key and model-access connection test.
+  * Add confirmed deletion of inactive, old job records.
+
+ -- EPUB2M4B contributors <maintainers@epub2m4b.invalid>  Thu, 17 Sep 2026 23:55:00 -0400
+
+epub2m4b (0.1.2) resolute; urgency=medium
+
+  * Remove the unavailable gpt-4o-tts model choice after confirmed HTTP 404.
+  * Make force re-onboarding tolerate provider keys that were never saved.
+  * Display a visible reason if reset cannot complete.
+
+ -- EPUB2M4B contributors <maintainers@epub2m4b.invalid>  Thu, 17 Sep 2026 23:40:00 -0400
+
+epub2m4b (0.1.1) resolute; urgency=medium
+
+  * Add force re-onboarding with a non-secret settings and audit export.
+  * Record detailed redacted OpenAI HTTP request failures.
+
+ -- EPUB2M4B contributors <maintainers@epub2m4b.invalid>  Thu, 17 Sep 2026 23:30:00 -0400
+
+epub2m4b (0.1.0) resolute; urgency=medium
+
+  * Initial release for Ubuntu 26.04 (resolute) on amd64.
+  * Guided first-run onboarding: book folder, cache folder, bundled voice
+    auditions, and optional OpenAI API key saved to the system keyring.
+  * Mouse-driven Library, Jobs, and Settings screens usable at 80x24.
+  * Cost-gated OpenAI narration with typed confirmation, pause/resume/cancel,
+    durable caching, and chaptered M4B assembly with FFmpeg.
+  * ElevenLabs support is present but marked UNTESTED live and is refused
+    until live verification.
+
+ -- EPUB2M4B contributors <maintainers@epub2m4b.invalid>  Thu, 17 Sep 2026 18:18:44 -0400

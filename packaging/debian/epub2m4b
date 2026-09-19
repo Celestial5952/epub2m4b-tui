@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+exec /usr/bin/python3 -I /usr/lib/epub2m4b/launcher.py "$@"
+

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=EPUB2M4B Audiobook Studio
+Comment=Convert EPUB books into narrated M4B audiobooks
+Exec=epub2m4b
+TryExec=epub2m4b
+Icon=epub2m4b
+Terminal=true
+Categories=AudioVideo;Audio;
+Keywords=EPUB;M4B;Audiobook;Text to Speech;TTS;
+StartupNotify=false

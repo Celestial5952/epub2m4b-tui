@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "epub2m4b"
+version = "0.1.6"
+description = "Ubuntu audiobook studio for converting EPUB books to chaptered M4B files"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "EPUB2M4B contributors" }]
+dependencies = [
+  "beautifulsoup4>=4.12,<5",
+  "EbookLib>=0.18,<1",
+  "keyring>=25,<26",
+  "openai>=1.66,<2",
+  "textual>=1.0,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "pytest-asyncio>=0.25,<1",
+  "pytest-cov>=6,<8",
+  "ruff>=0.9,<1",
+]
+
+[project.scripts]
+epub2m4b = "epub2m4b.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/epub2m4b"]
+artifacts = [
+  "src/epub2m4b/resources/voice_samples/*.opus",
+  "src/epub2m4b/resources/voice_samples/manifest.json",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]

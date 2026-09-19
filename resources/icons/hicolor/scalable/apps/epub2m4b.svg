@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="EPUB2M4B">
+  <defs>
+    <linearGradient id="cover" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="26" fill="#111827"/>
+  <path d="M29 22h53c9 0 17 8 17 17v68H43c-8 0-14-6-14-14V22z" fill="url(#cover)"/>
+  <path d="M43 96h56v11H43c-8 0-14-6-14-14s6-14 14-14h56v11H43c-2 0-4 1-4 3s2 3 4 3z" fill="#dbeafe"/>
+  <path d="M50 45c0-9 7-16 16-16s16 7 16 16" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+  <rect x="45" y="43" width="9" height="21" rx="4" fill="#fff"/>
+  <rect x="78" y="43" width="9" height="21" rx="4" fill="#fff"/>
+  <path d="M58 69c7 5 13 5 20 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+</svg>
+

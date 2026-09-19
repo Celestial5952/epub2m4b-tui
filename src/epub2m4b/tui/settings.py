@@ -20,17 +20,39 @@ _OPENAI_MODELS = (
     ("gpt-4o-mini-tts", "gpt-4o-mini-tts"),
 )
 
-_PROVIDERS = (
-    ("OpenAI (verified)", "openai"),
-    ("ElevenLabs — UNTESTED live, not available yet", "elevenlabs"),
+_ELEVENLABS_MODELS = (
+    ("Eleven Multilingual v2 (Long-form)", "eleven_multilingual_v2"),
+    ("Eleven Turbo v2.5 (Fast & low latency)", "eleven_turbo_v2_5"),
+    ("Eleven Flash v2.5 (Fast & low cost)", "eleven_flash_v2_5"),
+    ("Eleven v3 (Experimental)", "eleven_v3"),
 )
 
-_CREDENTIAL_LABELS = {
+_PROVIDERS = (
+    ("OpenAI (verified)", "openai"),
+    ("ElevenLabs (UNTESTED live)", "elevenlabs"),
+)
+
+_OPENAI_CREDENTIAL_LABELS = {
     "configured": "An OpenAI key is saved on this computer.",
     "environment": "Using the OPENAI_API_KEY environment variable.",
     "unconfigured": "No OpenAI key is saved yet.",
     "unavailable": "Secure credential storage is unavailable on this computer.",
 }
+
+_ELEVENLABS_CREDENTIAL_LABELS = {
+    "configured": "An ElevenLabs key is saved on this computer.",
+    "environment": "Using the ELEVENLABS_API_KEY environment variable.",
+    "unconfigured": "No ElevenLabs key is saved yet.",
+    "unavailable": "Secure credential storage is unavailable on this computer.",
+}
+
+_CREDENTIAL_LABELS = _OPENAI_CREDENTIAL_LABELS
+
+
+def _models_for_provider(provider: str) -> tuple[tuple[str, str], ...]:
+    if provider == "elevenlabs":
+        return _ELEVENLABS_MODELS
+    return _OPENAI_MODELS
 
 
 def _voice_id(entry: Any) -> str:
@@ -55,9 +77,13 @@ class SettingsScreen(Screen[None]):
         voice_options = tuple(
             (_voice_name(entry), _voice_id(entry)) for entry in self.state.voices
         )
-        credential_text = _CREDENTIAL_LABELS.get(
+        credential_text = _OPENAI_CREDENTIAL_LABELS.get(
             str(getattr(self.state, "credential_status", "unconfigured")),
             "No OpenAI key is saved yet.",
+        )
+        elevenlabs_credential_text = _ELEVENLABS_CREDENTIAL_LABELS.get(
+            str(getattr(self.state, "elevenlabs_credential_status", "unconfigured")),
+            "No ElevenLabs key is saved yet.",
         )
         yield Header(show_clock=False)
         with Container(id="settings-screen"):
@@ -117,23 +143,22 @@ class SettingsScreen(Screen[None]):
                 )
                 yield Static("Narration provider", classes="section-title")
                 yield Static(
-                    "ElevenLabs support is still being verified and is marked "
-                    "UNTESTED live, so it cannot be selected yet."
+                    "Choose between OpenAI and ElevenLabs for audiobook voice synthesis."
                 )
+                current_provider = str(getattr(self.state, "provider", "openai"))
                 yield Select(
                     _PROVIDERS,
-                    value=str(getattr(self.state, "provider", "openai")),
+                    value=current_provider,
                     id="settings-provider",
                 )
                 yield Static("Narration model", classes="section-title")
+                model_choices = _models_for_provider(current_provider)
+                current_model = str(getattr(self.state, "model", model_choices[0][1]))
+                if current_model not in {value for _, value in model_choices}:
+                    current_model = model_choices[0][1]
                 yield Select(
-                    _OPENAI_MODELS,
-                    value=(
-                        str(getattr(self.state, "model", "gpt-4o-mini-tts"))
-                        if str(getattr(self.state, "model", "gpt-4o-mini-tts"))
-                        in {value for _, value in _OPENAI_MODELS}
-                        else "gpt-4o-mini-tts"
-                    ),
+                    model_choices,
+                    value=current_model,
                     id="settings-model",
                 )
                 yield Static("Reading speed", classes="section-title")
@@ -189,6 +214,30 @@ class SettingsScreen(Screen[None]):
                     disabled=str(getattr(self.state, "credential_status", ""))
                     != "configured",
                 )
+                yield Static("ElevenLabs credential", classes="section-title")
+                yield Static(
+                    "Narration with ElevenLabs requires an ElevenLabs API key. "
+                    "Keys are saved securely in your computer's system keyring."
+                )
+                yield Static(elevenlabs_credential_text, id="settings-elevenlabs-credential-status")
+                with Horizontal(classes="directory-row"):
+                    yield Input(
+                        placeholder="Paste your ElevenLabs API key",
+                        password=True,
+                        id="settings-elevenlabs-credential-input",
+                    )
+                    yield Button(
+                        "Save ElevenLabs key",
+                        id="settings-save-elevenlabs-credential",
+                        variant="primary",
+                    )
+                yield Button(
+                    "Remove saved ElevenLabs key",
+                    id="settings-remove-elevenlabs-credential",
+                    variant="error",
+                    disabled=str(getattr(self.state, "elevenlabs_credential_status", ""))
+                    != "configured",
+                )
                 yield Static("Start over", classes="section-title")
                 yield Static(
                     "Export your non-secret settings and activity history, remove saved app "
@@ -220,10 +269,18 @@ class SettingsScreen(Screen[None]):
     def on_select_changed(self, event: Select.Changed[str]) -> None:
         if event.select.id == "settings-voice" and event.value is not Select.BLANK:
             self.selected_voice = str(event.value)
+        elif event.select.id == "settings-provider" and event.value is not Select.BLANK:
+            provider = str(event.value)
+            model_select = self.query_one("#settings-model", Select)
+            options = _models_for_provider(provider)
+            model_select.set_options(options)
+            model_select.value = options[0][1]
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "settings-credential-input":
             self._save_credential()
+        elif event.input.id == "settings-elevenlabs-credential-input":
+            self._save_elevenlabs_credential()
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
@@ -247,6 +304,10 @@ class SettingsScreen(Screen[None]):
             await self._test_openai_connection()
         elif button_id == "settings-remove-credential":
             self._remove_credential()
+        elif button_id == "settings-save-elevenlabs-credential":
+            self._save_elevenlabs_credential()
+        elif button_id == "settings-remove-elevenlabs-credential":
+            self._remove_elevenlabs_credential()
         elif button_id == "settings-force-reonboard":
             self.app.push_screen(ForceReonboardScreen(), self._force_reonboard)
         elif button_id == "save-settings":
@@ -282,6 +343,40 @@ class SettingsScreen(Screen[None]):
             )
             self.query_one("#settings-remove-credential", Button).disabled = True
             message.update("Saved OpenAI key removed.")
+        except Exception:
+            message.update("The saved key could not be removed. Try again.")
+            return
+
+    def _save_elevenlabs_credential(self) -> bool:
+        message = self.query_one("#settings-message", Static)
+        field = self.query_one("#settings-elevenlabs-credential-input", Input)
+        secret = field.value.strip()
+        if not secret:
+            message.update("Paste or type an ElevenLabs API key first.")
+            return False
+        try:
+            self.service.set_elevenlabs_credential(secret)
+            self.query_one("#settings-elevenlabs-credential-status", Static).update(
+                _ELEVENLABS_CREDENTIAL_LABELS["configured"]
+            )
+            self.query_one("#settings-remove-elevenlabs-credential", Button).disabled = False
+            message.update("ElevenLabs key saved securely to system keyring.")
+        except Exception:
+            message.update("The key could not be saved to secure storage. Try again.")
+            return False
+        finally:
+            field.value = ""
+        return True
+
+    def _remove_elevenlabs_credential(self) -> None:
+        message = self.query_one("#settings-message", Static)
+        try:
+            self.service.remove_elevenlabs_credential()
+            self.query_one("#settings-elevenlabs-credential-status", Static).update(
+                _ELEVENLABS_CREDENTIAL_LABELS["unconfigured"]
+            )
+            self.query_one("#settings-remove-elevenlabs-credential", Button).disabled = True
+            message.update("Saved ElevenLabs key removed.")
         except Exception:
             message.update("The saved key could not be removed. Try again.")
             return
@@ -348,6 +443,20 @@ class SettingsScreen(Screen[None]):
                 return
             finally:
                 key_input.value = ""
+        elevenlabs_input = self.query_one("#settings-elevenlabs-credential-input", Input)
+        elevenlabs_secret = elevenlabs_input.value.strip()
+        if elevenlabs_secret:
+            try:
+                self.service.set_elevenlabs_credential(elevenlabs_secret)
+                self.query_one("#settings-elevenlabs-credential-status", Static).update(
+                    _ELEVENLABS_CREDENTIAL_LABELS["configured"]
+                )
+                self.query_one("#settings-remove-elevenlabs-credential", Button).disabled = False
+            except Exception:
+                message.update("The ElevenLabs key could not be saved. Try again.")
+                return
+            finally:
+                elevenlabs_input.value = ""
         try:
             self.service.complete_onboarding(
                 self.selected_voice,

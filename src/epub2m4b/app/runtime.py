@@ -262,6 +262,16 @@ class LocalApplicationService:
         self.onboarding.remove_credential()
         self._audit_record(CREDENTIAL, "saved OpenAI API key removed", provider="openai")
 
+    def set_elevenlabs_credential(self, secret: str) -> None:
+        self.onboarding.set_elevenlabs_credential(secret)
+        self._audit_record(
+            CREDENTIAL, "ElevenLabs API key saved to the system keyring", provider="elevenlabs"
+        )
+
+    def remove_elevenlabs_credential(self) -> None:
+        self.onboarding.remove_elevenlabs_credential()
+        self._audit_record(CREDENTIAL, "saved ElevenLabs API key removed", provider="elevenlabs")
+
     def force_reonboard(self) -> Path:
         """Export non-secret history and return this installation to first run."""
 

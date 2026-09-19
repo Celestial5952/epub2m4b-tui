@@ -77,6 +77,12 @@ class OnboardingFake:
     def remove_credential(self) -> None:
         self.calls.append(("remove", None))
 
+    def set_elevenlabs_credential(self, secret: str) -> None:
+        self.calls.append(("set_elevenlabs", secret))
+
+    def remove_elevenlabs_credential(self) -> None:
+        self.calls.append(("remove_elevenlabs", None))
+
 
 class PlayerFake:
     def __init__(self) -> None:
@@ -142,6 +148,8 @@ def test_simple_methods_delegate_and_preview_validates_voice(tmp_path: Path) -> 
     service.skip_onboarding()
     service.set_openai_credential("secret")
     service.remove_openai_credential()
+    service.set_elevenlabs_credential("secret")
+    service.remove_elevenlabs_credential()
     service.play_voice_preview("marin")
     service.stop_voice_preview()
     service.shutdown()
@@ -160,6 +168,8 @@ def test_simple_methods_delegate_and_preview_validates_voice(tmp_path: Path) -> 
         ("skip", None),
         ("set", "secret"),
         ("remove", None),
+        ("set_elevenlabs", "secret"),
+        ("remove_elevenlabs", None),
     ]
     assert player.calls == [
         ("play", tmp_path / "preview.opus"),

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from textual.widgets import Button, Input, Static
+from textual.widgets import Button, Input, Select, Static
 
 from epub2m4b.app.onboarding import OnboardingState
 from epub2m4b.tui.app import EPUB2M4BApp
@@ -15,9 +15,14 @@ class Voice:
 
 
 class FakeSettingsService:
-    def __init__(self, credential_status: str = "unconfigured") -> None:
+    def __init__(
+        self,
+        credential_status: str = "unconfigured",
+        elevenlabs_credential_status: str = "unconfigured",
+    ) -> None:
         self.calls: list[tuple[str, object]] = []
         self.credential_status = credential_status
+        self.elevenlabs_credential_status = elevenlabs_credential_status
 
     def onboarding_state(self) -> OnboardingState:
         return OnboardingState(
@@ -29,6 +34,7 @@ class FakeSettingsService:
             Path("/tmp/epub-cache"),
             Path("/books"),
             output_directory=Path("/audiobooks"),
+            elevenlabs_credential_status=self.elevenlabs_credential_status,
         )
 
     def set_openai_credential(self, secret: str) -> None:
@@ -38,6 +44,14 @@ class FakeSettingsService:
     def remove_openai_credential(self) -> None:
         self.calls.append(("remove_credential", None))
         self.credential_status = "unconfigured"
+
+    def set_elevenlabs_credential(self, secret: str) -> None:
+        self.calls.append(("set_elevenlabs_credential", secret))
+        self.elevenlabs_credential_status = "configured"
+
+    def remove_elevenlabs_credential(self) -> None:
+        self.calls.append(("remove_elevenlabs_credential", None))
+        self.elevenlabs_credential_status = "unconfigured"
 
     def force_reonboard(self) -> Path:
         self.calls.append(("force_reonboard", None))
@@ -264,3 +278,102 @@ async def test_openai_connection_button_checks_saved_key_and_model() -> None:
         assert ("test_openai_connection", "gpt-4o-mini-tts") in service.calls
         message = app.screen.query_one("#settings-message", Static)
         assert "OpenAI is reachable" in str(message.renderable)
+
+
+@pytest.mark.asyncio
+async def test_settings_elevenlabs_credential_renders_and_saves() -> None:
+    service = FakeSettingsService("unconfigured", elevenlabs_credential_status="unconfigured")
+    app = EPUB2M4BApp(service)
+    async with app.run_test() as pilot:
+        await pilot.click("#nav-settings")
+        await pilot.pause(0.2)
+        screen = app.screen
+
+        status = screen.query_one("#settings-elevenlabs-credential-status", Static)
+        assert "No ElevenLabs key is saved yet" in str(status.renderable)
+
+        key_input = screen.query_one("#settings-elevenlabs-credential-input", Input)
+        assert key_input.password is True
+
+        key_input.scroll_visible()
+        await pilot.pause(0.2)
+        key_input.value = "xi-test-secret-key-12345"
+
+        save_btn = screen.query_one("#settings-save-elevenlabs-credential", Button)
+        save_btn.scroll_visible()
+        await pilot.pause(0.2)
+        await pilot.click("#settings-save-elevenlabs-credential")
+        await pilot.pause(0.2)
+
+        assert ("set_elevenlabs_credential", "xi-test-secret-key-12345") in service.calls
+        assert key_input.value == ""
+        assert "An ElevenLabs key is saved on this computer" in str(status.renderable)
+
+
+@pytest.mark.asyncio
+async def test_settings_remove_elevenlabs_credential() -> None:
+    service = FakeSettingsService("unconfigured", elevenlabs_credential_status="configured")
+    app = EPUB2M4BApp(service)
+    async with app.run_test() as pilot:
+        await pilot.click("#nav-settings")
+        await pilot.pause(0.2)
+        screen = app.screen
+
+        remove_btn = screen.query_one("#settings-remove-elevenlabs-credential", Button)
+        assert remove_btn.disabled is False
+        remove_btn.scroll_visible()
+        await pilot.pause(0.2)
+        await pilot.click("#settings-remove-elevenlabs-credential")
+        await pilot.pause(0.2)
+
+        assert ("remove_elevenlabs_credential", None) in service.calls
+        assert remove_btn.disabled is True
+        status = screen.query_one("#settings-elevenlabs-credential-status", Static)
+        assert "No ElevenLabs key is saved yet" in str(status.renderable)
+
+
+@pytest.mark.asyncio
+async def test_settings_provider_switch_updates_models() -> None:
+    service = FakeSettingsService("unconfigured")
+    app = EPUB2M4BApp(service)
+    async with app.run_test() as pilot:
+        await pilot.click("#nav-settings")
+        await pilot.pause(0.2)
+        screen = app.screen
+
+        provider_select = screen.query_one("#settings-provider", Select)
+        model_select = screen.query_one("#settings-model", Select)
+
+        # Switch to ElevenLabs
+        provider_select.value = "elevenlabs"
+        await pilot.pause(0.2)
+        assert model_select.value == "eleven_multilingual_v2"
+
+        # Switch back to OpenAI
+        provider_select.value = "openai"
+        await pilot.pause(0.2)
+        assert model_select.value == "gpt-4o-mini-tts"
+
+
+@pytest.mark.asyncio
+async def test_settings_save_refuses_untested_elevenlabs_provider() -> None:
+    service = FakeSettingsService("unconfigured")
+    app = EPUB2M4BApp(service)
+    async with app.run_test() as pilot:
+        await pilot.click("#nav-settings")
+        await pilot.pause(0.2)
+        screen = app.screen
+
+        provider_select = screen.query_one("#settings-provider", Select)
+        provider_select.value = "elevenlabs"
+        await pilot.pause(0.2)
+
+        save_btn = screen.query_one("#save-settings", Button)
+        save_btn.scroll_visible()
+        await pilot.pause(0.2)
+        await pilot.click("#save-settings")
+        await pilot.pause(0.2)
+
+        message = screen.query_one("#settings-message", Static)
+        assert "UNTESTED" in str(message.renderable)
+        assert not any(call[0] == "complete" for call in service.calls)

@@ -37,6 +37,7 @@ class OnboardingState:
     speed: float = 1.0
     instructions: str = ""
     maximum_estimated_cost_usd: float = 25.0
+    elevenlabs_credential_status: str = "unconfigured"
 
 
 class OnboardingService:
@@ -71,12 +72,13 @@ class OnboardingService:
         try:
             credential_status = self._credentials.status("openai", env)
         except Exception as exc:
-            # Credential backend details are intentionally not part of UI state.
-            # CredentialService raises CredentialError for unavailable backends;
-            # catching defensively also protects the onboarding boundary from an
-            # alternate backend leaking an implementation message.
             del exc
             credential_status = "unavailable"
+        try:
+            elevenlabs_status = self._credentials.status("elevenlabs", env)
+        except Exception as exc:
+            del exc
+            elevenlabs_status = "unavailable"
         return OnboardingState(
             completed=config.onboarding_complete,
             selected_voice=config.voice,
@@ -91,6 +93,7 @@ class OnboardingService:
             speed=config.speed,
             instructions=config.instructions,
             maximum_estimated_cost_usd=config.maximum_estimated_cost_usd,
+            elevenlabs_credential_status=elevenlabs_status,
         )
 
     @staticmethod
@@ -205,6 +208,12 @@ class OnboardingService:
 
     def remove_credential(self) -> None:
         self._credentials.delete("openai")
+
+    def set_elevenlabs_credential(self, secret: str) -> None:
+        self._credentials.set("elevenlabs", secret)
+
+    def remove_elevenlabs_credential(self) -> None:
+        self._credentials.delete("elevenlabs")
 
 
 __all__ = ["OnboardingService", "OnboardingState"]

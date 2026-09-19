@@ -56,6 +56,7 @@ _SAFE_TEST_PREFIXES = (
     "sk-super-",
     "sk-local-",
     "sk-new-",
+    "xi-test-",
 )
 
 
@@ -128,13 +129,17 @@ def scan_files(repo_root: Path, known_secrets: list[str]) -> list[str]:
 
             # Check 2: pattern matching for live credential formats
             for label, pattern in _KEY_PATTERNS:
-                matches = pattern.findall(line)
-                for match in matches:
+                for match_obj in pattern.finditer(line):
+                    match_str = match_obj.group(0)
                     # Allow synthetic keys in test files
-                    if any(match.startswith(prefix) for prefix in _SAFE_TEST_PREFIXES):
+                    if any(match_str.startswith(prefix) for prefix in _SAFE_TEST_PREFIXES):
                         continue
                     # Allow documentation/manifest examples or redaction placeholders
-                    if "<redacted>" in line or "dummy" in line.lower() or "example" in line.lower():
+                    if (
+                        "<redacted>" in line
+                        or "dummy" in line.lower()
+                        or "example" in line.lower()
+                    ):
                         continue
                     # Exclude the security check script itself from flagging its own patterns
                     if path.name == "security_check.py":

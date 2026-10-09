@@ -21,6 +21,8 @@ dist/
 *.key
 *.pem
 *.secret
+.secrets/
+*api_key*
 AGENTS.md
 HANDOFF.md
 MULTI_AGENT_SETUP.md

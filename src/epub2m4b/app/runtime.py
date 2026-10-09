@@ -70,6 +70,7 @@ from epub2m4b.models import (
 from epub2m4b.paths import AppPaths
 from epub2m4b.providers.base import SynthesisRequest, TTSProvider
 from epub2m4b.providers.openai_tts import OpenAITTSProvider
+from epub2m4b.providers.registry import ProviderRegistryError, default_provider_registry
 from epub2m4b.voice_registry import VoiceRegistry
 
 _OPENAI_TTS_PRICING = OPENAI_TTS_PRICING
@@ -253,6 +254,31 @@ class LocalApplicationService:
     def skip_onboarding(self) -> None:
         self.onboarding.skip()
 
+    def set_provider_credential(self, provider_id: str, secret: str) -> None:
+        """Save a provider's API key through the credential service and audit it."""
+
+        self.onboarding.set_provider_credential(provider_id, secret)
+        self._audit_record(
+            CREDENTIAL,
+            f"{self._provider_name(provider_id)} API key saved to the system keyring",
+            provider=provider_id,
+        )
+
+    def remove_provider_credential(self, provider_id: str) -> None:
+        self.onboarding.remove_provider_credential(provider_id)
+        self._audit_record(
+            CREDENTIAL,
+            f"saved {self._provider_name(provider_id)} API key removed",
+            provider=provider_id,
+        )
+
+    @staticmethod
+    def _provider_name(provider_id: str) -> str:
+        try:
+            return default_provider_registry().get(provider_id).name
+        except ProviderRegistryError:
+            return provider_id
+
     def set_openai_credential(self, secret: str) -> None:
         self.onboarding.set_credential(secret)
         self._audit_record(
@@ -423,10 +449,17 @@ class LocalApplicationService:
     def _require_supported_provider(provider: str) -> None:
         """Refuse paid work for providers that have not passed live verification."""
 
-        if provider != "openai":
+        try:
+            entry = default_provider_registry().get(provider)
+        except ProviderRegistryError:
             raise GenerationError(
-                "ElevenLabs narration is marked UNTESTED live and is not "
-                "available in this version; choose OpenAI in Settings"
+                f"narration provider {provider!r} is unknown; choose a verified provider "
+                "in Settings"
+            ) from None
+        if not entry.live_verified:
+            raise GenerationError(
+                f"{entry.name} narration is marked UNTESTED live and is not "
+                "available in this version; choose a verified provider in Settings"
             )
 
     async def estimate_job(self, job_id: str) -> NarrationEstimate:

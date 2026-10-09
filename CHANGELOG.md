@@ -2,6 +2,14 @@
 
 ## 0.1.6 - Unreleased
 
+- Let onboarding choose the narration service, then ask for that service's API key.
+  The provider list, key pages, default model, and verified flag come from the
+  provider registry, so adding a provider no longer needs wizard changes. A key
+  typed for one provider is never saved under another, and an unverified provider
+  (ElevenLabs) saves its key without becoming the narration provider.
+- Add generic `set_provider_credential` / `remove_provider_credential` service
+  methods and drive credential environment names and the paid-work guard from the
+  registry.
 - Add `epub2m4b estimate PATH`: an offline report of characters, words, audio length,
   and per-provider cost (with ElevenLabs credits and plan fit) for one EPUB or a
   folder of EPUBs. It makes no network request and reads no API key.

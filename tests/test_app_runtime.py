@@ -77,6 +77,12 @@ class OnboardingFake:
     def remove_credential(self) -> None:
         self.calls.append(("remove", None))
 
+    def set_provider_credential(self, provider_id: str, secret: str) -> None:
+        self.calls.append(("set_provider", (provider_id, secret)))
+
+    def remove_provider_credential(self, provider_id: str) -> None:
+        self.calls.append(("remove_provider", provider_id))
+
     def set_elevenlabs_credential(self, secret: str) -> None:
         self.calls.append(("set_elevenlabs", secret))
 
@@ -494,6 +500,41 @@ def test_compare_job_providers_is_informational_for_untested_providers(
     comparison = asyncio.run(service.compare_job_providers("job-123"))
     assert comparison.character_count == 2_500
     assert comparison.quotes[1].credits == 2_875
+
+
+def test_generic_credential_methods_delegate_and_audit_without_the_secret(
+    tmp_path: Path,
+) -> None:
+    onboarding = OnboardingFake()
+    service = _service(tmp_path, onboarding=onboarding)
+
+    service.set_provider_credential("elevenlabs", "el-secret-value")
+    service.remove_provider_credential("openai")
+    service.set_provider_credential("not-registered", "x")  # name falls back to the id
+
+    assert onboarding.calls == [
+        ("set_provider", ("elevenlabs", "el-secret-value")),
+        ("remove_provider", "openai"),
+        ("set_provider", ("not-registered", "x")),
+    ]
+    entries = asyncio.run(service.audit_entries())  # newest first
+    assert [(e.provider, e.message) for e in reversed(entries)] == [
+        ("elevenlabs", "ElevenLabs API key saved to the system keyring"),
+        ("openai", "saved OpenAI API key removed"),
+        ("not-registered", "not-registered API key saved to the system keyring"),
+    ]
+    assert "el-secret-value" not in repr(entries)
+
+
+def test_paid_work_guard_follows_the_provider_registry(tmp_path: Path) -> None:
+    from epub2m4b.exceptions import GenerationError
+
+    guard = _service(tmp_path)._require_supported_provider
+    guard("openai")  # verified: allowed
+    with pytest.raises(GenerationError, match="ElevenLabs narration is marked UNTESTED live"):
+        guard("elevenlabs")
+    with pytest.raises(GenerationError, match="unknown"):
+        guard("some-future-provider")
 
 
 def test_pause_and_cancel_require_active_generation(tmp_path: Path) -> None:

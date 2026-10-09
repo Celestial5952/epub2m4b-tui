@@ -125,6 +125,24 @@ stale hard-coded price cannot silently authorize paid work. Inputs must be finit
 and positive, and the estimate uses ceiling arithmetic before applying the safety
 multiplier.
 
+## Providers and credentials in onboarding
+
+`ProviderMetadata` (see `providers/registry.py`) carries each provider's `id`,
+`display_name`, `credential_env`, capabilities, and the optional `short_name`,
+`key_url`, `billing_url`, `default_model`, and `live_verified`. `choice_label` renders
+`"<name> (verified)"` or `"<name> (UNTESTED live)"`. `CredentialService` resolves a
+provider's environment variable from the registry, so an unregistered id is refused.
+
+`OnboardingState.providers` is a tuple of `ProviderOption` snapshots of every
+text-to-speech provider in registry order, each with its own `credential_status`
+(`configured`, `environment`, `unconfigured`, or `unavailable`). The older
+`credential_status` and `elevenlabs_credential_status` fields remain for existing
+callers. `ApplicationService.set_provider_credential(provider_id, secret)` and
+`remove_provider_credential(provider_id)` save or remove any provider's key and write
+a secret-free audit entry; the per-provider OpenAI and ElevenLabs methods delegate to
+them. `OnboardingService.complete(..., provider=...)` refuses an unregistered provider
+or one that is not `live_verified`, before writing any configuration.
+
 ## Provider comparison and `epub2m4b estimate`
 
 `compare_providers(chunks, targets, safety_multiplier)` returns word and character

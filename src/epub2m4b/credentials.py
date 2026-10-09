@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 
 from .exceptions import CredentialError
+from .providers.registry import ProviderRegistryError, default_provider_registry
 
 SERVICE_NAME = "epub2m4b"
-_PROVIDER_ENV = {"openai": "OPENAI_API_KEY", "elevenlabs": "ELEVENLABS_API_KEY"}
 
 
 class _KeyringBackend(Protocol):
@@ -49,9 +49,14 @@ class CredentialService:
 
     @staticmethod
     def _env_for(provider_id: str) -> str:
-        if not isinstance(provider_id, str) or provider_id not in _PROVIDER_ENV:
+        """Resolve the environment variable name from the provider registry."""
+
+        if not isinstance(provider_id, str):
             raise CredentialError("unknown provider")
-        return _PROVIDER_ENV[provider_id]
+        try:
+            return default_provider_registry().get(provider_id).credential_env
+        except ProviderRegistryError:
+            raise CredentialError("unknown provider") from None
 
     @staticmethod
     def _env_value(env: Mapping[str, str] | None, name: str) -> str | None:

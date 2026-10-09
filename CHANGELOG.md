@@ -16,6 +16,7 @@
 - Validate narration speed to reject non-finite float values (NaN, Inf).
 - Wire missing navigation button handlers (`nav-jobs`, `nav-logs`) in Job Details.
 - Expand chapter timing tolerance to 50ms for AAC packet boundaries.
+- Stop narrating `<head>` content (such as the document `<title>`), which duplicated chapter headings and inflated TTS cost.
 
 ## 0.1.5 - Unreleased
 

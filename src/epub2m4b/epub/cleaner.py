@@ -5,7 +5,12 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 
-_SKIP_TAGS = frozenset({"script", "style", "noscript", "nav", "svg", "template"})
+_SKIP_TAGS = frozenset({"head", "script", "style", "noscript", "nav", "svg", "template"})
+# Elements that may legitimately appear inside <head>; anything else implies
+# the head was never closed (browsers close it implicitly at that point).
+_HEAD_CONTENT_TAGS = frozenset(
+    {"title", "meta", "link", "base", "script", "style", "noscript", "template"}
+)
 _VOID_TAGS = frozenset(
     {
         "area",
@@ -95,8 +100,18 @@ class _NarrationParser(HTMLParser):
         if existing < count:
             self.parts.append("\n" * (count - existing))
 
+    def _close_open_head(self) -> None:
+        """Implicitly close an unclosed <head> when body content begins."""
+
+        for index, frame in enumerate(self._frames):
+            if frame[0] == "head":
+                self._frames = self._frames[:index]
+                return
+
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         tag = tag.lower()
+        if tag not in _HEAD_CONTENT_TAGS:
+            self._close_open_head()
         values = _attr_map(attrs)
         skipped = bool(self._frames and self._frames[-1][1])
         skipped = skipped or tag in _SKIP_TAGS or _is_hidden(values) or _is_page_marker(tag, values)

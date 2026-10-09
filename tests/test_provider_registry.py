@@ -77,3 +77,41 @@ def test_invalid_metadata_and_duplicates_are_rejected() -> None:
 def test_unknown_provider_does_not_invent_one() -> None:
     with pytest.raises(ProviderRegistryError, match="unknown provider"):
         default_provider_registry().get("google")
+
+
+def test_default_providers_carry_onboarding_metadata() -> None:
+    registry = default_provider_registry()
+    openai = registry.get("openai")
+    elevenlabs = registry.get("elevenlabs")
+    assert (openai.name, openai.live_verified) == ("OpenAI", True)
+    assert (elevenlabs.name, elevenlabs.live_verified) == ("ElevenLabs", False)
+    assert openai.choice_label == "OpenAI (verified)"
+    assert elevenlabs.choice_label == "ElevenLabs (UNTESTED live)"
+    assert openai.default_model == "gpt-4o-mini-tts"
+    assert elevenlabs.default_model == "eleven_multilingual_v2"
+    for entry in registry.entries:
+        assert entry.key_url.startswith("https://")
+        assert entry.billing_url.startswith("https://")
+
+
+def test_new_metadata_fields_are_optional_and_name_falls_back_to_display_name() -> None:
+    entry = ProviderMetadata("acme", "Acme Voice", "ACME_API_KEY", frozenset({TEXT_TO_SPEECH}))
+    assert entry.name == "Acme Voice"
+    assert (entry.key_url, entry.billing_url, entry.default_model) == ("", "", "")
+    assert entry.live_verified is False
+    assert entry.choice_label == "Acme Voice (UNTESTED live)"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"key_url": "http://acme.example/keys"},
+        {"billing_url": "ftp://acme.example"},
+        {"short_name": 3},
+        {"default_model": None},
+        {"live_verified": "yes"},
+    ],
+)
+def test_invalid_onboarding_metadata_is_rejected(overrides: dict[str, object]) -> None:
+    with pytest.raises(ProviderRegistryError):
+        ProviderMetadata("acme", "Acme", "ACME_API_KEY", frozenset(), **overrides)  # type: ignore[arg-type]

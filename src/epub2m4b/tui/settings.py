@@ -11,6 +11,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Input, Select, Static, TextArea
 
 from epub2m4b.app.service import ApplicationService
+from epub2m4b.providers.registry import TEXT_TO_SPEECH, default_provider_registry
 
 from .directory_picker import DirectoryPickerScreen
 from .force_reonboard import ForceReonboardScreen
@@ -27,9 +28,9 @@ _ELEVENLABS_MODELS = (
     ("Eleven v3 (Experimental)", "eleven_v3"),
 )
 
-_PROVIDERS = (
-    ("OpenAI (verified)", "openai"),
-    ("ElevenLabs (UNTESTED live)", "elevenlabs"),
+_REGISTRY = default_provider_registry()
+_PROVIDERS = tuple(
+    (entry.choice_label, entry.id) for entry in _REGISTRY.for_capability(TEXT_TO_SPEECH)
 )
 
 _OPENAI_CREDENTIAL_LABELS = {
@@ -415,10 +416,12 @@ class SettingsScreen(Screen[None]):
         if not self.selected_voice:
             message.update("Choose a voice before saving.")
             return
-        if provider != "openai":
+        chosen = next((entry for entry in _REGISTRY.entries if entry.id == provider), None)
+        if chosen is None or not chosen.live_verified:
+            name = chosen.name if chosen is not None else provider
             message.update(
-                "ElevenLabs is marked UNTESTED live and cannot be selected yet. "
-                "Keep OpenAI chosen."
+                f"{name} is marked UNTESTED live and cannot be selected yet. "
+                "Keep a verified provider chosen."
             )
             return
         try:

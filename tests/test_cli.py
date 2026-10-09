@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from epub2m4b import cli
+from epub2m4b import __version__, cli
 
 
 class _ServiceFactory:
@@ -45,7 +45,7 @@ def test_help_and_version_exit_before_bootstrap(
             raise AssertionError("bootstrap must not run")
 
     monkeypatch.setattr(cli, "LocalApplicationService", Forbidden)
-    for option, expected in (("--help", "Convert EPUB"), ("--version", "0.1.0")):
+    for option, expected in (("--help", "Convert EPUB"), ("--version", f"epub2m4b {__version__}")):
         with pytest.raises(SystemExit) as caught:
             cli.main([option])
         assert caught.value.code == 0

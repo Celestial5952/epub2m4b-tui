@@ -2,7 +2,11 @@ from decimal import Decimal
 
 import pytest
 
-from epub2m4b.generation.elevenlabs_estimate import estimate_elevenlabs_cost
+from epub2m4b.generation.elevenlabs_estimate import (
+    estimate_elevenlabs_cost,
+    estimate_elevenlabs_credits,
+    smallest_elevenlabs_plan,
+)
 from epub2m4b.models import Chunk, NarrationSettings
 
 
@@ -78,3 +82,50 @@ def test_iterable_is_consumed_once() -> None:
     chunks = (_chunk(text, index) for index, text in enumerate(("one", "two")))
     estimate = estimate_elevenlabs_cost(chunks, "eleven_multilingual_v2")
     assert estimate.character_count == 6
+
+
+@pytest.mark.parametrize(
+    "model,expected_credits",
+    [
+        ("eleven_multilingual_v2", 2_875),
+        ("eleven_v3", 2_875),
+        ("eleven_flash_v2", 1_438),
+        ("eleven_flash_v2_5", 1_438),
+        ("eleven_turbo_v2", 1_438),
+        ("eleven_turbo_v2_5", 1_438),
+    ],
+)
+def test_credits_follow_the_model_rate_and_round_up(model: str, expected_credits: int) -> None:
+    # 2,500 characters * multiplier * 1.15 safety margin; Flash/Turbo is 1,437.5 -> 1,438.
+    assert estimate_elevenlabs_credits([_chunk("x" * 2_500)], model) == expected_credits
+
+
+@pytest.mark.parametrize("model", ["", "future-model", None])
+def test_credits_for_unknown_models_are_blocked(model: str | None) -> None:
+    with pytest.raises(ValueError, match="verified pricing"):
+        estimate_elevenlabs_credits([_chunk("text")], model)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "credits,plan",
+    [
+        (0, "Free"),
+        (10_000, "Free"),
+        (10_001, "Starter"),
+        (30_000, "Starter"),
+        (100_001, "Pro"),
+        (500_000, "Pro"),
+        (500_001, "Scale"),
+        (1_800_001, "Business"),
+        (6_000_000, "Business"),
+        (6_000_001, None),
+    ],
+)
+def test_smallest_plan_boundaries(credits: int, plan: str | None) -> None:
+    assert smallest_elevenlabs_plan(credits) == plan
+
+
+@pytest.mark.parametrize("credits", [-1, True, 1.5, "10"])
+def test_smallest_plan_rejects_invalid_credit_counts(credits: object) -> None:
+    with pytest.raises(ValueError, match="non-negative integer"):
+        smallest_elevenlabs_plan(credits)  # type: ignore[arg-type]

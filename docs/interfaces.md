@@ -125,6 +125,48 @@ stale hard-coded price cannot silently authorize paid work. Inputs must be finit
 and positive, and the estimate uses ceiling arithmetic before applying the safety
 multiplier.
 
+## Providers and credentials in onboarding
+
+`ProviderMetadata` (see `providers/registry.py`) carries each provider's `id`,
+`display_name`, `credential_env`, capabilities, and the optional `short_name`,
+`key_url`, `billing_url`, `default_model`, and `live_verified`. `choice_label` renders
+`"<name> (verified)"` or `"<name> (UNTESTED live)"`. `CredentialService` resolves a
+provider's environment variable from the registry, so an unregistered id is refused.
+
+`OnboardingState.providers` is a tuple of `ProviderOption` snapshots of every
+text-to-speech provider in registry order, each with its own `credential_status`
+(`configured`, `environment`, `unconfigured`, or `unavailable`). The older
+`credential_status` and `elevenlabs_credential_status` fields remain for existing
+callers. `ApplicationService.set_provider_credential(provider_id, secret)` and
+`remove_provider_credential(provider_id)` save or remove any provider's key and write
+a secret-free audit entry; the per-provider OpenAI and ElevenLabs methods delegate to
+them. `OnboardingService.complete(..., provider=...)` refuses an unregistered provider
+or one that is not `live_verified`, before writing any configuration.
+
+## Provider comparison and `epub2m4b estimate`
+
+`compare_providers(chunks, targets, safety_multiplier)` returns word and character
+counts, estimated seconds, and one `ProviderQuote` per `QuoteTarget`: the USD
+estimate with the safety margin applied and, for ElevenLabs, subscription credits
+(characters times the model's rate relative to the standard $0.10 per 1,000, with
+the margin) and the smallest plan whose monthly allowance covers them. It is pure
+arithmetic over prepared chunks: it never reads a credential, makes a request, or
+authorizes paid work, so it is exempt from the UNTESTED-provider guard that
+`estimate_job` enforces. Unknown providers and models are refused, never guessed.
+
+Plan allowances in `ELEVENLABS_PLAN_CREDITS` are the lowest published figure per
+tier and are **not verified**; every user-facing surface that shows a plan must
+also tell the reader to confirm at elevenlabs.io/pricing.
+
+`ApplicationService.compare_job_providers(job_id)` applies this to a job's
+remaining (not yet complete) chunks and backs the job detail screen. The CLI
+subcommand `epub2m4b estimate PATH` accepts one EPUB or a folder (scanned with
+`scan_epub_folder`, so symbolic links are not followed), prepares each book with
+`prepare_job`, and prints text size, USD per provider, and ElevenLabs credits, plus
+a combined total for folders. It never creates `LocalApplicationService`, so it
+loads no credentials or application state. An unreadable EPUB is reported on stderr
+and skipped; any skipped file, an empty folder, or a missing path exits with status 1.
+
 ## TTS provider
 
 `TTSProvider.synthesize(request, destination)` is asynchronous. It writes a WAV to

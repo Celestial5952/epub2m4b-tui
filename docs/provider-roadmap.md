@@ -45,13 +45,30 @@ The adapter surfaces provider request IDs, and runtime wiring must also record t
 `character-cost` response header for reconciliation, enforce global and per-job
 spending caps, and require explicit confirmation before the first live request.
 Bundled local voice samples remain the normal audition path so browsing voices never
-consumes credits.
+consumes credits. `epub2m4b estimate` and the job detail comparison price a book for
+both providers offline, including ElevenLabs subscription credits, before any request.
 
 The synthesis and catalog milestones include redacted error mapping, PCM/WAV
 validation, retry classification, explicit paginated discovery, and deterministic
 fake-transport tests. The next milestone adds guarded runtime selection and
 provider-specific pricing. No milestone may add an automatic connection test or
 make a live request in CI.
+
+## Adding a provider
+
+A new provider needs only:
+
+1. A `ProviderMetadata` entry in `default_provider_registry()` with its `id`,
+   `display_name`, `credential_env`, capabilities, and the optional `short_name`,
+   `key_url`, `billing_url`, and `default_model`. Leave `live_verified=False`.
+2. A `TTSProvider` adapter implementing the contract in `docs/interfaces.md`.
+
+Credential storage (`CredentialService`), the onboarding provider and key steps, the
+Settings provider list, and the paid-work guard all read that registry entry, so none
+needs editing. Set `live_verified=True` only after an explicitly authorized live
+request succeeds; until then narration is refused and the UI labels it *UNTESTED
+live*. Still provider-specific today: the Settings model list and credential blocks,
+and mapping the bundled voice to a provider's own voice IDs.
 
 ## Provider onboarding contract
 

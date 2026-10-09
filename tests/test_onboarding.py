@@ -6,10 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from epub2m4b.app.onboarding import OnboardingService
+from epub2m4b.app.onboarding import OnboardingService, ProviderOption, provider_options
 from epub2m4b.config import AppConfig
 from epub2m4b.config_store import ConfigRepository
 from epub2m4b.credentials import CredentialError
+from epub2m4b.providers.registry import TEXT_TO_SPEECH, ProviderMetadata, ProviderRegistry
 
 
 @dataclass(frozen=True, slots=True)
@@ -308,3 +309,132 @@ def test_complete_omitted_options_preserve_previous_values(tmp_path: Path) -> No
     assert saved.instructions == previous.instructions
     assert saved.maximum_estimated_cost_usd == previous.maximum_estimated_cost_usd
     assert saved.output_directory == previous.output_directory
+
+
+class PerProviderCredentials(Credentials):
+    def __init__(self, statuses: dict[str, str]) -> None:
+        super().__init__()
+        self.statuses = statuses
+
+    def status(self, provider: str, env: Mapping[str, str] | None = None) -> str:
+        self.calls.append(("status", provider, env))
+        return self.statuses[provider]
+
+
+def test_state_lists_every_registry_provider_with_its_own_key_status(tmp_path: Path) -> None:
+    credentials = PerProviderCredentials({"openai": "configured", "elevenlabs": "environment"})
+    service, _, _ = make_service(tmp_path, credentials)
+
+    state = service.state({})
+
+    assert [option.id for option in state.providers] == ["openai", "elevenlabs"]
+    openai, elevenlabs = state.providers
+    assert (openai.name, openai.label, openai.live_verified) == (
+        "OpenAI",
+        "OpenAI (verified)",
+        True,
+    )
+    assert (elevenlabs.label, elevenlabs.live_verified) == (
+        "ElevenLabs (UNTESTED live)",
+        False,
+    )
+    assert (openai.credential_status, elevenlabs.credential_status) == (
+        "configured",
+        "environment",
+    )
+    assert elevenlabs.credential_env == "ELEVENLABS_API_KEY"
+    assert elevenlabs.key_url.startswith("https://")
+    # The older per-provider fields stay populated for existing callers.
+    assert state.credential_status == "configured"
+    assert state.elevenlabs_credential_status == "environment"
+
+
+def test_one_provider_with_an_unavailable_keyring_does_not_hide_the_others(
+    tmp_path: Path,
+) -> None:
+    class Flaky(PerProviderCredentials):
+        def status(self, provider: str, env: Mapping[str, str] | None = None) -> str:
+            if provider == "openai":
+                raise CredentialError("backend failed with secret_should_not_escape")
+            return super().status(provider, env)
+
+    service, _, _ = make_service(tmp_path, Flaky({"elevenlabs": "configured"}))
+    openai, elevenlabs = service.state({}).providers
+    assert openai.credential_status == "unavailable"
+    assert elevenlabs.credential_status == "configured"
+    assert "secret_should_not_escape" not in repr(service.state({}))
+
+
+def test_registry_added_provider_appears_in_state_without_code_changes(tmp_path: Path) -> None:
+    acme = ProviderMetadata(
+        "acme",
+        "Acme Voice",
+        "ACME_API_KEY",
+        frozenset({TEXT_TO_SPEECH}),
+        key_url="https://acme.example/keys",
+        default_model="acme-1",
+        live_verified=True,
+    )
+    other = ProviderMetadata("stt", "Transcribe", "STT_API_KEY", frozenset({"speech_to_text"}))
+    registry = ProviderRegistry((acme, other))
+    credentials = PerProviderCredentials({"acme": "unconfigured"})
+    path = tmp_path / "config.toml"
+    service = OnboardingService(
+        path,
+        credentials,
+        Registry(Voice("marin", "Marin")),
+        lambda: (),
+        registry=registry,
+    )
+
+    state = service.state({})
+
+    # Only text-to-speech providers are offered for narration.
+    assert [option.id for option in state.providers] == ["acme"]
+    assert state.providers[0].default_model == "acme-1"
+    service.complete("marin", provider="acme", model="acme-1")
+    assert ConfigRepository.load(path).provider == "acme"
+
+
+def test_provider_options_defaults_to_the_registry_with_unconfigured_keys() -> None:
+    options = provider_options()
+    assert [option.id for option in options] == ["openai", "elevenlabs"]
+    assert {option.credential_status for option in options} == {"unconfigured"}
+    assert isinstance(options[0], ProviderOption)
+
+
+def test_generic_credential_methods_delegate_for_any_provider(tmp_path: Path) -> None:
+    credentials = Credentials()
+    service, _, _ = make_service(tmp_path, credentials)
+
+    service.set_provider_credential("elevenlabs", "el-secret")
+    service.remove_provider_credential("elevenlabs")
+    # The older per-provider methods are thin wrappers over the generic ones.
+    service.set_credential("oa-secret")
+    service.remove_credential()
+    service.set_elevenlabs_credential("el-secret-2")
+    service.remove_elevenlabs_credential()
+
+    assert credentials.calls == [
+        ("set", "elevenlabs", "el-secret"),
+        ("delete", "elevenlabs", None),
+        ("set", "openai", "oa-secret"),
+        ("delete", "openai", None),
+        ("set", "elevenlabs", "el-secret-2"),
+        ("delete", "elevenlabs", None),
+    ]
+
+
+def test_only_a_verified_registered_provider_can_become_the_narration_provider(
+    tmp_path: Path,
+) -> None:
+    service, _, path = make_service(tmp_path)
+
+    with pytest.raises(ValueError, match="UNTESTED"):
+        service.complete("marin", provider="elevenlabs")
+    with pytest.raises(ValueError, match="unknown narration provider"):
+        service.complete("marin", provider="google")
+    assert not path.exists()  # a refused selection never writes configuration
+
+    service.complete("marin", provider="openai")
+    assert ConfigRepository.load(path).provider == "openai"

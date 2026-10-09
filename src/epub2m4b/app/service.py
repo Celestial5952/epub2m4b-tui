@@ -10,6 +10,7 @@ from epub2m4b.app.events import ProgressEvent
 from epub2m4b.app.jobs import JobSummary
 from epub2m4b.app.library import LibraryScan
 from epub2m4b.app.onboarding import OnboardingState
+from epub2m4b.generation.comparison import ProviderComparison
 from epub2m4b.generation.estimate import NarrationEstimate
 from epub2m4b.models import Book, JobManifest
 
@@ -64,6 +65,8 @@ class ApplicationService(Protocol):
     async def delete_job(self, job_id: str) -> None: ...
 
     async def estimate_job(self, job_id: str) -> NarrationEstimate: ...
+
+    async def compare_job_providers(self, job_id: str) -> ProviderComparison: ...
 
     async def estimate_job_preview(self, job_id: str) -> NarrationEstimate: ...
 

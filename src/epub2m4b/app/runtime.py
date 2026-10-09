@@ -50,10 +50,11 @@ from epub2m4b.epub.parser import inspect_book
 from epub2m4b.exceptions import DuplicatePreparationError, EpubError, GenerationError
 from epub2m4b.generation.cache import AudioCache
 from epub2m4b.generation.chunker import chunk_text
+from epub2m4b.generation.comparison import ProviderComparison, compare_providers
 from epub2m4b.generation.coordinator import GenerationCoordinator
 from epub2m4b.generation.estimate import (
+    OPENAI_TTS_PRICING,
     NarrationEstimate,
-    TTSPricing,
     estimate_narration,
 )
 from epub2m4b.generation.job import PreparedJob, prepare_job
@@ -71,7 +72,7 @@ from epub2m4b.providers.base import SynthesisRequest, TTSProvider
 from epub2m4b.providers.openai_tts import OpenAITTSProvider
 from epub2m4b.voice_registry import VoiceRegistry
 
-_OPENAI_TTS_PRICING = TTSPricing("0.60", "12.00", "20")
+_OPENAI_TTS_PRICING = OPENAI_TTS_PRICING
 
 
 def _load_local_env() -> None:
@@ -445,6 +446,25 @@ class LocalApplicationService:
             )
 
         return await asyncio.to_thread(estimate)
+
+    async def compare_job_providers(self, job_id: str) -> ProviderComparison:
+        """Price the remaining text for every supported provider, offline.
+
+        Unlike ``estimate_job`` this is informational only: it never authorizes or
+        performs paid work, so it deliberately does not apply the UNTESTED-provider
+        guard and works for a job prepared under any provider.
+        """
+
+        manifest_path = self.jobs.manifest_path(job_id)
+
+        def compare() -> ProviderComparison:
+            manifest = ManifestRepository.load(manifest_path)
+            remaining = tuple(
+                chunk for chunk in manifest.chunks if chunk.status is not ChunkStatus.COMPLETE
+            )
+            return compare_providers(remaining)
+
+        return await asyncio.to_thread(compare)
 
     def _preview_chunk_for_job(self, manifest: JobManifest) -> Chunk:
         first = next((c for c in manifest.chunks if c.text.strip()), None)

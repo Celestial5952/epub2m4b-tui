@@ -45,7 +45,8 @@ The adapter surfaces provider request IDs, and runtime wiring must also record t
 `character-cost` response header for reconciliation, enforce global and per-job
 spending caps, and require explicit confirmation before the first live request.
 Bundled local voice samples remain the normal audition path so browsing voices never
-consumes credits.
+consumes credits. `epub2m4b estimate` and the job detail comparison price a book for
+both providers offline, including ElevenLabs subscription credits, before any request.
 
 The synthesis and catalog milestones include redacted error mapping, PCM/WAV
 validation, retry classification, explicit paginated discovery, and deterministic

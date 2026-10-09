@@ -75,3 +75,33 @@ def test_soft_hyphen_zero_width_and_duplicate_blanks() -> None:
 def test_normalization_is_idempotent() -> None:
     value = "  A\r\n\r\n\r\n B\u00a0C  "
     assert normalize_text(normalize_text(value)) == normalize_text(value)
+
+
+def test_head_title_is_not_narrated() -> None:
+    markup = (
+        "<html><head><title>Chapter 1</title><meta charset='utf-8'>"
+        "<link rel='stylesheet' href='s.css'></head>"
+        "<body><h1>Chapter 1</h1><p>Body text here.</p></body></html>"
+    )
+    assert clean(markup) == "Chapter 1\n\nBody text here."
+
+
+def test_document_without_head_keeps_body_heading() -> None:
+    assert clean("<html><body><h1>Chapter 1</h1><p>Body.</p></body></html>") == (
+        "Chapter 1\n\nBody."
+    )
+    assert clean("<h1>Chapter 1</h1><p>Body.</p>") == "Chapter 1\n\nBody."
+
+
+def test_unclosed_head_does_not_swallow_body() -> None:
+    markup = "<html><head><title>Chapter 1</title><body><h1>Chapter 1</h1><p>Body.</p></body></html>"
+    assert clean(markup) == "Chapter 1\n\nBody."
+
+
+def test_unclosed_head_without_body_tag_does_not_swallow_content() -> None:
+    assert clean("<head><title>T</title><p>Body.</p>") == "Body."
+
+
+def test_head_script_and_style_stay_skipped() -> None:
+    markup = "<head><style>x</style><script>y</script></head><body><p>A</p></body>"
+    assert clean(markup) == "A"

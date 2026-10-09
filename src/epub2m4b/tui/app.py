@@ -27,7 +27,7 @@ class EPUB2M4BApp(App[None]):
 
     CSS = """
     #onboarding { padding: 2 4; height: 1fr; }
-    .step { height: 1fr; padding: 1 0; }
+    .step { height: 1fr; padding: 1 0; overflow-y: auto; }
     .voice-row { height: 3; }
     .directory-row { height: 3; width: 100%; }
     .directory-row Input { width: 1fr; }

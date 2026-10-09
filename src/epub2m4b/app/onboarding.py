@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Protocol
@@ -11,6 +11,12 @@ from typing import Any, Protocol
 from ..config import migrate_retired_openai_model
 from ..config_store import ConfigRepository
 from ..credentials import CredentialService
+from ..providers.registry import (
+    TEXT_TO_SPEECH,
+    ProviderRegistry,
+    ProviderRegistryError,
+    default_provider_registry,
+)
 
 
 class _VoiceRegistry(Protocol):
@@ -18,6 +24,47 @@ class _VoiceRegistry(Protocol):
     def entries(self) -> tuple[Any, ...]: ...
 
     def get(self, voice_id: str) -> Any: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderOption:
+    """A narration provider the listener can pick, plus their key status.
+
+    Built from the provider registry so the UI never hard-codes a provider.
+    """
+
+    id: str
+    name: str
+    label: str
+    live_verified: bool
+    default_model: str
+    key_url: str
+    billing_url: str
+    credential_env: str
+    credential_status: str = "unconfigured"
+
+
+def provider_options(
+    statuses: Mapping[str, str] | None = None,
+    registry: ProviderRegistry | None = None,
+) -> tuple[ProviderOption, ...]:
+    """List every text-to-speech provider in registry order."""
+
+    known = statuses or {}
+    return tuple(
+        ProviderOption(
+            id=entry.id,
+            name=entry.name,
+            label=entry.choice_label,
+            live_verified=entry.live_verified,
+            default_model=entry.default_model,
+            key_url=entry.key_url,
+            billing_url=entry.billing_url,
+            credential_env=entry.credential_env,
+            credential_status=known.get(entry.id, "unconfigured"),
+        )
+        for entry in (registry or default_provider_registry()).for_capability(TEXT_TO_SPEECH)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +85,7 @@ class OnboardingState:
     instructions: str = ""
     maximum_estimated_cost_usd: float = 25.0
     elevenlabs_credential_status: str = "unconfigured"
+    providers: tuple[ProviderOption, ...] = field(default_factory=provider_options)
 
 
 class OnboardingService:
@@ -52,7 +100,9 @@ class OnboardingService:
         *,
         default_cache_directory: Path | None = None,
         default_book_directory: Path | None = None,
+        registry: ProviderRegistry | None = None,
     ) -> None:
+        self._registry = registry or default_provider_registry()
         self._config_path = Path(config_path)
         self._credentials = credentials
         self._voices = voices
@@ -69,16 +119,16 @@ class OnboardingService:
             # can be prepared, so old configuration cannot create a doomed job.
             ConfigRepository.save(self._config_path, migrated)
             config = migrated
-        try:
-            credential_status = self._credentials.status("openai", env)
-        except Exception as exc:
-            del exc
-            credential_status = "unavailable"
-        try:
-            elevenlabs_status = self._credentials.status("elevenlabs", env)
-        except Exception as exc:
-            del exc
-            elevenlabs_status = "unavailable"
+        options = provider_options(registry=self._registry)
+        statuses: dict[str, str] = {}
+        for option in options:
+            try:
+                statuses[option.id] = self._credentials.status(option.id, env)
+            except Exception as exc:
+                del exc
+                statuses[option.id] = "unavailable"
+        credential_status = statuses.get("openai", "unconfigured")
+        elevenlabs_status = statuses.get("elevenlabs", "unconfigured")
         return OnboardingState(
             completed=config.onboarding_complete,
             selected_voice=config.voice,
@@ -94,6 +144,7 @@ class OnboardingService:
             instructions=config.instructions,
             maximum_estimated_cost_usd=config.maximum_estimated_cost_usd,
             elevenlabs_credential_status=elevenlabs_status,
+            providers=provider_options(statuses, self._registry),
         )
 
     @staticmethod
@@ -170,6 +221,8 @@ class OnboardingService:
 
         # Validate before loading/saving so an invalid selection cannot write.
         self._voices.get(voice_id)
+        if provider is not None:
+            self._require_narration_provider(provider)
         config = ConfigRepository.load(self._config_path)
         books = self._book_path(book_directory)
         cache = self._cache_path(cache_directory)
@@ -197,23 +250,39 @@ class OnboardingService:
             ),
         )
 
+    def _require_narration_provider(self, provider_id: str) -> None:
+        """Only a registered, live-verified provider may become the narration provider."""
+
+        try:
+            entry = self._registry.get(provider_id)
+        except ProviderRegistryError:
+            raise ValueError("unknown narration provider") from None
+        if not entry.live_verified:
+            raise ValueError(f"{entry.name} narration is UNTESTED live and cannot be selected yet")
+
     def skip(self) -> None:
         """Mark onboarding complete while preserving the current configuration."""
 
         config = ConfigRepository.load(self._config_path)
         ConfigRepository.save(self._config_path, replace(config, onboarding_complete=True))
 
+    def set_provider_credential(self, provider_id: str, secret: str) -> None:
+        self._credentials.set(provider_id, secret)
+
+    def remove_provider_credential(self, provider_id: str) -> None:
+        self._credentials.delete(provider_id)
+
     def set_credential(self, secret: str) -> None:
-        self._credentials.set("openai", secret)
+        self.set_provider_credential("openai", secret)
 
     def remove_credential(self) -> None:
-        self._credentials.delete("openai")
+        self.remove_provider_credential("openai")
 
     def set_elevenlabs_credential(self, secret: str) -> None:
-        self._credentials.set("elevenlabs", secret)
+        self.set_provider_credential("elevenlabs", secret)
 
     def remove_elevenlabs_credential(self) -> None:
-        self._credentials.delete("elevenlabs")
+        self.remove_provider_credential("elevenlabs")
 
 
-__all__ = ["OnboardingService", "OnboardingState"]
+__all__ = ["OnboardingService", "OnboardingState", "ProviderOption", "provider_options"]

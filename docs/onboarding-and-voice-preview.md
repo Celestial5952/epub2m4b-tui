@@ -3,8 +3,9 @@
 ## Goals
 
 First launch should explain the application, verify local audio tooling, let the
-listener compare every bundled voice, and offer secure OpenAI setup without making
-credentials a prerequisite for opening the application.
+listener compare every bundled voice, and let them pick a narration service and save
+that service's API key securely, without making credentials a prerequisite for opening
+the application.
 
 The onboarding wizard is always skippable and can be reopened from Settings.
 
@@ -16,35 +17,41 @@ paths, or an understanding of EPUB parsing, caches, FFmpeg, models, or job IDs.
 ## First-run flow
 
 1. **Welcome** — explain that EPUB parsing and audiobook assembly happen locally,
-   while narration uses the listener's own OpenAI API account.
+   while narration uses an account the listener controls.
 2. **System check** — report FFmpeg, FFprobe, and audio-preview availability. A
    playback failure is non-fatal and includes the exact remediation.
 3. **Storage and books** — choose a writable narration-cache location and an existing
    book-library folder. The cache may be created; the library is scanned read-only.
 4. **Voice audition** — show all bundled samples with Play/Stop and Select actions.
    This step works offline and does not require an API key.
-5. **OpenAI setup (optional)** — offer:
-   - Create my own API key
-   - Use an existing API key
-   - Use `OPENAI_API_KEY` for this session
-   - Skip for now
-6. **Finish** — summarize the selected voice, credential status, cache location, and
-   book folder. Home scans the selected folder and offers the discovered EPUBs in a
-   deterministic list. No API request is made merely by completing onboarding.
+5. **Narration service** — choose which provider reads the books aloud. The list comes
+   from the provider registry, so a new provider appears with no wizard changes. Each
+   entry is labelled *verified* or *UNTESTED live*. Choosing an unverified provider
+   explains that its key can be saved now but narration keeps using the current
+   verified provider until it is verified.
+6. **API key (optional)** — for the provider chosen in step 5, show its official
+   key-creation and billing pages and whether a key is already saved or supplied by
+   its environment variable, then offer a masked input. The key is saved under that
+   provider only; changing the provider discards anything typed. The step can be
+   skipped.
+7. **Finish** — summarize the selected voice, narration service, that service's key
+   status, cache location, and book folder. Home scans the selected folder and offers
+   the discovered EPUBs in a deterministic list. No API request is made merely by
+   completing onboarding.
 
 Skipping API setup leaves EPUB inspection, chapter selection, estimates, settings,
 and bundled voice auditions available. Paid preview generation and audiobook
-generation remain disabled with a clear **Configure OpenAI** action.
+generation remain disabled with a clear action to configure the narration service.
 
 ## Individual API-key setup
 
-Every listener supplies a key from their own OpenAI project. EPUB2M4B never ships a
-shared key and never asks for an OpenAI password.
+Every listener supplies a key from their own provider account. EPUB2M4B never ships a
+shared key and never asks for a provider password.
 
-The **Create my own API key** action opens the official OpenAI API-key page through
-`xdg-open` only after an explicit user action. If desktop opening is unavailable,
-the TUI displays a copyable URL. The listener returns to a masked input, pastes the
-key, and may run a minimal connection test before saving.
+Onboarding displays the provider's official API-key and billing URLs as copyable text
+(taken from the provider registry; only `https` URLs are accepted). The listener
+creates a key there, returns to a masked input, and pastes it. A connection test is
+available from Settings for providers that implement one.
 
 Credentials are stored with `keyring`/Secret Service. They never enter
 `config.toml`, manifests, logs, shell scripts, screenshots, or bundled resources.
@@ -53,9 +60,10 @@ states that ChatGPT subscriptions and API billing are separate and links to bill
 and project spend-limit settings.
 
 The screen is provider-registry driven so **ElevenLabs / ElevenReader (UNTESTED)**
-credentials use a separate keyring entry and can be selected independently of OpenAI. A provider is
-selectable for narration only when it declares text-to-speech capability and has an
-installed adapter; see `docs/provider-roadmap.md`.
+credentials use a separate keyring entry and can be saved independently of OpenAI. A
+provider is selectable for narration only when it declares text-to-speech capability,
+has an installed adapter, and is marked `live_verified`; otherwise onboarding saves
+its key but leaves the narration provider unchanged. See `docs/provider-roadmap.md`.
 
 ## Voice audition
 
@@ -102,6 +110,8 @@ Playback is a service-layer capability. Textual widgets call `play_preview` and
 - Starting a new sample stops the previous sample.
 - Stop, screen change, application exit, SIGINT, and SIGTERM leave no player child.
 - API setup can be skipped without warnings on every launch.
+- The provider and key steps stay fully visible on an 80x24 terminal.
+- A key typed for one provider is never saved under another.
 - Cache and book folders can be selected during onboarding and persist atomically.
 - Home scans the configured book folder without following symlinks and offers EPUBs
   for selection while retaining manual path entry. Selecting a listed book opens it

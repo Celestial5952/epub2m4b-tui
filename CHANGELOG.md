@@ -17,6 +17,7 @@
 - Wire missing navigation button handlers (`nav-jobs`, `nav-logs`) in Job Details.
 - Expand chapter timing tolerance to 50ms for AAC packet boundaries.
 - Stop narrating `<head>` content (such as the document `<title>`), which duplicated chapter headings and inflated TTS cost.
+- Report the real package version from `epub2m4b --version` instead of a stale hard-coded `0.1.0`.
 
 ## 0.1.5 - Unreleased
 

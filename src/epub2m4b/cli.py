@@ -5,6 +5,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from epub2m4b import __version__
 from epub2m4b.app.runtime import LocalApplicationService
 from epub2m4b.estimate_cli import run_estimate
 from epub2m4b.tui import EPUB2M4BApp
@@ -15,7 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="epub2m4b",
         description="Convert EPUB ebooks into chaptered M4B audiobooks.",
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", metavar="command")
     estimate = commands.add_parser(
         "estimate",

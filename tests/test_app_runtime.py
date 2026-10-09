@@ -450,6 +450,52 @@ def test_estimate_job_prices_remaining_openai_chunks(tmp_path: Path) -> None:
     assert estimate.estimated_cost_usd > 0
 
 
+def test_compare_job_providers_prices_only_the_remaining_text(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    from epub2m4b.models import ChunkStatus
+
+    manifest = _chunked_manifest(tmp_path)
+    settings = manifest.narration
+    done = replace(manifest.chunks[0], status=ChunkStatus.COMPLETE)
+    todo = Chunk.create(chapter_index=0, chunk_index=1, text="x" * 1_000, settings=settings)
+    _save_manifest(tmp_path, replace(manifest, chunks=(done, todo)))
+
+    comparison = asyncio.run(_service(tmp_path).compare_job_providers("job-123"))
+
+    assert comparison.character_count == 1_000
+    providers = [quote.target.provider for quote in comparison.quotes]
+    assert providers == ["openai", "elevenlabs", "elevenlabs"]
+    assert all(quote.estimated_cost_usd > 0 for quote in comparison.quotes)
+
+
+def test_compare_job_providers_is_informational_for_untested_providers(
+    tmp_path: Path,
+) -> None:
+    settings = NarrationSettings("elevenlabs", "eleven_multilingual_v2", "marin", 1.0, "read")
+    chunk = Chunk.create(chapter_index=0, chunk_index=0, text="x" * 2_500, settings=settings)
+    manifest = JobManifest(
+        job_id="job-123",
+        app_version="test",
+        source=ManifestSource("book.epub", "b" * 64),
+        book=ManifestBook("Book", ("Author",)),
+        narration=settings,
+        chunks=(chunk,),
+    )
+    _save_manifest(tmp_path, manifest)
+    service = _service(tmp_path)
+
+    from epub2m4b.exceptions import GenerationError
+
+    # Paid work stays fail-closed ...
+    with pytest.raises(GenerationError, match="UNTESTED"):
+        asyncio.run(service.estimate_job("job-123"))
+    # ... but the offline comparison still answers, and spends nothing.
+    comparison = asyncio.run(service.compare_job_providers("job-123"))
+    assert comparison.character_count == 2_500
+    assert comparison.quotes[1].credits == 2_875
+
+
 def test_pause_and_cancel_require_active_generation(tmp_path: Path) -> None:
     from epub2m4b.exceptions import GenerationError
 

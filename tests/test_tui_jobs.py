@@ -12,8 +12,9 @@ from epub2m4b.app.jobs import JobSummary
 from epub2m4b.app.library import LibraryScan
 from epub2m4b.app.onboarding import OnboardingState
 from epub2m4b.exceptions import DuplicatePreparationError
+from epub2m4b.generation.comparison import ProviderComparison, compare_providers
 from epub2m4b.generation.estimate import NarrationEstimate
-from epub2m4b.models import Book, Chapter, JobStatus, NarrationSettings
+from epub2m4b.models import Book, Chapter, Chunk, JobStatus, NarrationSettings
 from epub2m4b.tui.app import EPUB2M4BApp
 
 
@@ -52,6 +53,7 @@ class Service:
             narration=NarrationSettings("openai", "gpt-4o-mini-tts", "marin", 1.0, "read"),
         )
         self.fail_estimate = False
+        self.fail_comparison = False
         self.book = Book(
             Path("/book.epub"),
             "a" * 64,
@@ -96,6 +98,16 @@ class Service:
         if self.fail_estimate:
             raise RuntimeError("estimate backend")
         return _estimate()
+
+    async def compare_job_providers(self, job_id: str) -> ProviderComparison:
+        self.calls.append(("compare", job_id))
+        if self.fail_comparison:
+            raise RuntimeError("comparison backend")
+        settings = NarrationSettings("openai", "gpt-4o-mini-tts", "marin", 1.0, "")
+        chunk = Chunk.create(
+            chapter_index=0, chunk_index=0, text="word " * 20_000, settings=settings
+        )
+        return compare_providers((chunk,))
 
     async def generate(self, job_id: str, authorized: Decimal):
         self.calls.append(("generate", (job_id, authorized)))
@@ -223,6 +235,47 @@ async def test_jobs_card_opens_detail_with_estimate() -> None:
         assert not start.disabled
         assert app.screen.query_one("#open-audiobook", Button).disabled
         assert ("estimate", "job-ready") in service.calls
+
+
+@pytest.mark.asyncio
+async def test_job_detail_shows_provider_comparison_even_when_estimate_fails() -> None:
+    service = Service()
+    service.fail_estimate = True  # e.g. an ElevenLabs job: paid work refused, comparison OK
+    app = EPUB2M4BApp(service)
+    async with app.run_test() as pilot:
+        await pilot.click("#nav-jobs")
+        await pilot.pause(0.3)
+        await pilot.click("#view-job-ready")
+        await pilot.pause(0.5)
+        comparison = str(app.screen.query_one("#detail-comparison", Static).renderable)
+        assert "nothing is sent anywhere" in comparison
+        assert "OpenAI gpt-4o-mini-tts: $2.78" in comparison
+        assert "ElevenLabs Multilingual v2 (UNTESTED live): $11.50" in comparison
+        assert "115,000 credits" in comparison and "smallest plan: Pro" in comparison
+        assert "ElevenLabs Flash v2.5 (UNTESTED live): $5.75" in comparison
+        assert "elevenlabs.io/pricing" in comparison
+        assert ("compare", "job-ready") in service.calls
+        # The comparison is informational: it never enables starting paid work.
+        assert app.screen.query_one("#start-narrating", Button).disabled
+
+
+@pytest.mark.asyncio
+async def test_job_detail_survives_a_failing_comparison() -> None:
+    service = Service()
+    service.fail_comparison = True
+    app = EPUB2M4BApp(service)
+    async with app.run_test() as pilot:
+        await pilot.click("#nav-jobs")
+        await pilot.pause(0.3)
+        await pilot.click("#view-job-ready")
+        await pilot.pause(0.5)
+        assert app.screen.__class__.__name__ == "JobDetailScreen"
+        assert str(app.screen.query_one("#detail-comparison", Static).renderable) == ""
+        # The regular estimate and start button are unaffected.
+        assert "Remaining estimate: $1.24" in str(
+            app.screen.query_one("#detail-estimate", Static).renderable
+        )
+        assert not app.screen.query_one("#start-narrating", Button).disabled
 
 
 @pytest.mark.asyncio

@@ -2,6 +2,11 @@
 
 ## 0.1.6 - Unreleased
 
+- Add `epub2m4b estimate PATH`: an offline report of characters, words, audio length,
+  and per-provider cost (with ElevenLabs credits and plan fit) for one EPUB or a
+  folder of EPUBs. It makes no network request and reads no API key.
+- Show the same provider comparison on the job detail screen, including for
+  ElevenLabs jobs whose paid estimate is still refused as UNTESTED live.
 - Add format-aware cover video codec selection (`mjpeg`, `png`, `libwebp`) with `-pix_fmt yuvj420p` for JPEG covers.
 - Fix FFmpeg concat-list path escaping from shell-style to demuxer format `\'`.
 - Unify `ConfigurationError(Epub2M4BError)` hierarchy and improve header credential filtering.

@@ -57,6 +57,15 @@ class NarrationEstimate:
         return self.estimated_cost_usd
 
 
+#: Published ``gpt-4o-mini-tts`` rates: text input and audio output per million tokens,
+#: plus the audio tokens produced per second of speech.
+OPENAI_TTS_PRICING = TTSPricing("0.60", "12.00", "20")
+#: Narration speed assumed when converting words into listening time.
+DEFAULT_WORDS_PER_MINUTE = 120
+#: Margin added to every estimate so a cap comparison never underestimates.
+DEFAULT_SAFETY_MULTIPLIER = "1.15"
+
+
 def estimate_narration(
     chunks: Iterable[Chunk],
     pricing: TTSPricing,

@@ -15,6 +15,7 @@ from textual.widgets import Button, Footer, Header, Input, ProgressBar, Static
 from epub2m4b.app.jobs import JobSummary
 from epub2m4b.app.service import ApplicationService
 from epub2m4b.exceptions import Epub2M4BError
+from epub2m4b.generation.comparison import describe_quote
 from epub2m4b.generation.estimate import NarrationEstimate
 
 from .navigation import NavigationBar
@@ -247,6 +248,7 @@ class JobDetailScreen(Screen[None]):
                         )
                 yield Static("", id="detail-message")
                 yield Static("", id="detail-estimate")
+                yield Static("", id="detail-comparison")
                 with Container(id="detail-preview-box"):
                     yield Static("Narration Sample", classes="section-title")
                     yield Static(
@@ -271,6 +273,7 @@ class JobDetailScreen(Screen[None]):
     async def on_mount(self) -> None:
         self._render_view()
         await self._refresh_estimate()
+        await self._refresh_comparison()
         self.set_interval(1.0, self._poll_persisted_progress)
 
     async def _poll_persisted_progress(self) -> None:
@@ -513,6 +516,31 @@ class JobDetailScreen(Screen[None]):
             f"~{estimate.text_input_tokens:,} input tokens."
         )
 
+    async def _refresh_comparison(self) -> None:
+        """Show what the remaining text would cost elsewhere; purely informational."""
+
+        status_value = str(getattr(self.summary.status, "value", self.summary.status))
+        area = self.query_one("#detail-comparison", Static)
+        if status_value not in {"ready", "paused", "failed"}:
+            area.update("")
+            return
+        try:
+            comparison = await self.service.compare_job_providers(self.summary.job_id)
+        except Exception:
+            # The main estimate already reports real problems; never block on this.
+            area.update("")
+            return
+        lines = [
+            "Provider comparison for the remaining text "
+            "(estimates only; nothing is sent anywhere):",
+            *(f"  {describe_quote(quote)}" for quote in comparison.quotes),
+        ]
+        if any(quote.credits is not None for quote in comparison.quotes):
+            lines.append(
+                "  ElevenLabs plan sizes are approximate; confirm at elevenlabs.io/pricing."
+            )
+        area.update("\n".join(lines))
+
     # ----- generation lifecycle ------------------------------------------
 
     async def _start_flow(self) -> None:
@@ -638,6 +666,7 @@ class JobDetailScreen(Screen[None]):
             self._message("")
             await self._refresh_summary()
             await self._refresh_estimate()
+            await self._refresh_comparison()
         elif button_id == "start-narrating":
             await self._start_flow()
         elif button_id == "pause-job":
